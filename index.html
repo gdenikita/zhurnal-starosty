@@ -84,6 +84,13 @@ function pairsFor(ds){
   const day=(parse(ds).getDay()+6)%7+1,wt=weekType(ds);
   return D.schedule.filter(p=>p.day===day&&(p.week==='all'||!wt||p.week===wt)).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
 }
+function studyDate(base){
+  const x=new Date(base);
+  const day=x.getDay();
+  if(day===0)x.setDate(x.getDate()+1);
+  else if(day===6)x.setDate(x.getDate()+2);
+  return x;
+}
 async function load(silent){
   if(dirty||saving)return;
   try{
@@ -128,7 +135,7 @@ function dayView(ds){
     const m=(D.marks[ds]||{})[p.id]||{};
     let rows='';
     if(!D.students.length){
-      rows='<div class="muted pad">Список группы пуст.'+(ed?' Добавьте студентов во вкладке «Группа».':'')+'</div>';
+      rows='<div class="muted pad">Список группы пуст.'+(ed?' Добавьте студентов во вкладке «Группа», чтобы отмечать.':' Войдите как староста и добавьте список.')+'</div>';
     } else {
       rows=D.students.map(s=>{
         const v=m[s.id];
@@ -152,9 +159,13 @@ function deadlinesView(){
   return h+'</div>';
 }
 function vToday(){
-  const ds=iso(new Date()),wt=weekType(ds);
-  const t=parse(ds).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
-  return `<div class="hd2">${t}${wt?' · '+WNAME[wt]:''}</div>`+dayView(ds)+deadlinesView();
+  const now=new Date();
+  const study=studyDate(now);
+  const ds=iso(study);
+  const wt=weekType(ds);
+  const t=study.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+  const note=iso(now)!==ds?' · ближайший учебный день':'';
+  return `<div class="hd2">${t}${wt?' · '+WNAME[wt]:''}${note}</div>`+dayView(ds)+deadlinesView();
 }
 function vJournal(){
   const ym=jdate.slice(0,7),cnt={};
@@ -166,11 +177,14 @@ function vJournal(){
     return `<tr><td>${esc(s.name)}</td><td>${a}</td><td>${e}</td><td>${a*2}</td></tr>`;
   }).join('');
   const mn=parse(ym+'-01').toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
-  return `<input type="date" id="jd" value="${jdate}" style="margin-bottom:12px">`+dayView(jdate)
+  const wt=weekType(jdate);
+  return `<input type="date" id="jd" value="${jdate}" style="margin-bottom:8px">`
+    +`<div class="hd2 muted" style="margin-bottom:12px">${parse(jdate).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})}${wt?' · '+WNAME[wt]:''}</div>`
+    +dayView(jdate)
     +`<div class="card"><b>Пропуски за ${mn}</b>`+(rows?`<table><tr><th>Студент</th><th>Нет</th><th>Ув.</th><th>Часы</th></tr>${rows}</table>`:'<div class="muted pad">Пропусков нет</div>')+'<div class="muted"><small>1 пара = 2 часа. Считаются только «Нет».</small></div></div>';
 }
 function vPairs(){
-  const ed=isEd(),wt=weekType(iso(new Date()));
+  const ed=isEd(),wt=weekType(iso(studyDate(new Date())));
   let h='<div class="card"><b>Неделя</b><div class="muted pad">Сейчас: '+(wt?WNAME[wt]:'не задано')+'</div>'
     +(ed?'<div class="acts"><button class="btn" data-setw="num">Сейчас над чертой</button><button class="btn" data-setw="den">Сейчас под чертой</button></div>':'')+'</div>';
   for(let d=1;d<=7;d++){
@@ -239,7 +253,7 @@ document.addEventListener('click',e=>{
   if(d.m){const[ds,pid,sid,k]=d.m.split('|');mut(()=>{D.marks[ds]=D.marks[ds]||{};const m=D.marks[ds][pid]=D.marks[ds][pid]||{};if(m[sid]===k)delete m[sid];else m[sid]=k})}
   else if(d.all){const[ds,pid]=d.all.split('|');mut(()=>{D.marks[ds]=D.marks[ds]||{};const m=D.marks[ds][pid]=D.marks[ds][pid]||{};D.students.forEach(s=>m[s.id]='p')})}
   else if(d.sum){const[ds,pid]=d.sum.split('|');copy(summary(ds,pid))}
-  else if(d.setw){mut(()=>{const mon=mondayOf(new Date());if(d.setw==='den')mon.setDate(mon.getDate()-7);D.anchor=iso(mon)})}
+  else if(d.setw){mut(()=>{const mon=mondayOf(studyDate(new Date()));if(d.setw==='den')mon.setDate(mon.getDate()-7);D.anchor=iso(mon)})}
   else if(d.delp){if(confirm('Удалить пару?'))mut(()=>{D.schedule=D.schedule.filter(p=>p.id!=d.delp)})}
   else if(d.dels){if(confirm('Удалить студента из списка?'))mut(()=>{D.students=D.students.filter(s=>s.id!=d.dels)})}
   else if(d.deld){mut(()=>{D.deadlines=D.deadlines.filter(x=>x.id!=d.deld)})}
