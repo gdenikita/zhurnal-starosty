@@ -48,7 +48,7 @@ small{font-size:13px}
 <div id="toast"></div>
 <script>
 const $=s=>document.querySelector(s);
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));
 const z=n=>String(n).padStart(2,'0');
 const iso=d=>d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
 const parse=s=>new Date(s+'T00:00:00');
@@ -128,14 +128,18 @@ async function flush(){
   if(dirty&&!err)flush();
 }
 
-function dayView(ds){
-  const ed=isEd(),ps=pairsFor(ds);
+/* canEdit=false — только расписание; true — отметки (вкладка Журнал) */
+function dayView(ds,canEdit){
+  const ed=!!canEdit&&isEd(),ps=pairsFor(ds);
   if(!ps.length)return '<div class="card muted">В этот день пар нет.</div>';
+  if(!canEdit){
+    return ps.map(p=>`<div class="card"><div class="ph"><b>${esc(p.name)}</b><span class="muted">${esc(p.time||'')}${WL[p.week]||''}</span></div></div>`).join('');
+  }
   return ps.map(p=>{
     const m=(D.marks[ds]||{})[p.id]||{};
     let rows='';
     if(!D.students.length){
-      rows='<div class="muted pad">Список группы пуст.'+(ed?' Добавьте студентов во вкладке «Группа», чтобы отмечать.':' Войдите как староста и добавьте список.')+'</div>';
+      rows='<div class="muted pad">Список группы пуст.'+(isEd()?' Добавьте студентов во вкладке «Группа».':' Войдите как староста и добавьте список.')+'</div>';
     } else {
       rows=D.students.map(s=>{
         const v=m[s.id];
@@ -165,7 +169,7 @@ function vToday(){
   const wt=weekType(ds);
   const t=study.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
   const note=iso(now)!==ds?' · ближайший учебный день':'';
-  return `<div class="hd2">${t}${wt?' · '+WNAME[wt]:''}${note}</div>`+dayView(ds)+deadlinesView();
+  return `<div class="hd2">${t}${wt?' · '+WNAME[wt]:''}${note}</div>`+dayView(ds,false)+deadlinesView();
 }
 function vJournal(){
   const ym=jdate.slice(0,7),cnt={};
@@ -180,7 +184,7 @@ function vJournal(){
   const wt=weekType(jdate);
   return `<input type="date" id="jd" value="${jdate}" style="margin-bottom:8px">`
     +`<div class="hd2 muted" style="margin-bottom:12px">${parse(jdate).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})}${wt?' · '+WNAME[wt]:''}</div>`
-    +dayView(jdate)
+    +dayView(jdate,true)
     +`<div class="card"><b>Пропуски за ${mn}</b>`+(rows?`<table><tr><th>Студент</th><th>Нет</th><th>Ув.</th><th>Часы</th></tr>${rows}</table>`:'<div class="muted pad">Пропусков нет</div>')+'<div class="muted"><small>1 пара = 2 часа. Считаются только «Нет».</small></div></div>';
 }
 function vPairs(){
