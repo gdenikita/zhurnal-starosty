@@ -55,7 +55,8 @@ const parse=s=>new Date(s+'T00:00:00');
 const fmt=s=>parse(s).toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
 const L={p:'Тут',a:'Нет',e:'Ув.'};
 const DAYS=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
-const WL={all:'',num:' · числ.',den:' · знам.'};
+const WL={all:'',num:' · над чертой',den:' · под чертой'};
+const WNAME={num:'над чертой',den:'под чертой'};
 const host=location.hostname;
 const cfg={owner:host.endsWith('.github.io')?host.split('.')[0]:'gdenikita',repo:(host.endsWith('.github.io')&&location.pathname.split('/')[1])||'zhurnal-starosty'};
 const API=`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/data.json`;
@@ -70,10 +71,12 @@ function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clea
 function setStat(t,e){stat=t;err=!!e;chip()}
 function chip(){const c=$('#chip');c.textContent=(isEd()?'Староста · ':'Просмотр · ')+stat;c.className=err?'err':''}
 
-/* ---------- данные ---------- */
 function weekType(ds){
   if(!D.anchor)return null;
-  const d=parse(ds),mon=new Date(d);mon.setDate(d.getDate()-((d.getDay()+6)%7));
+  const d=parse(ds);
+  const effective=new Date(d);
+  if(d.getDay()===0)effective.setDate(d.getDate()+1);
+  const mon=new Date(effective);mon.setDate(effective.getDate()-((effective.getDay()+6)%7));
   const w=Math.round((mon-parse(D.anchor))/604800000);
   return w%2===0?'num':'den';
 }
@@ -118,21 +121,24 @@ async function flush(){
   if(dirty&&!err)flush();
 }
 
-/* ---------- экраны ---------- */
 function dayView(ds){
   const ed=isEd(),ps=pairsFor(ds);
-  if(!D.students.length)return '<div class="card muted">Список группы пуст.'+(ed?' Добавьте студентов во вкладке «Группа».':'')+'</div>';
   if(!ps.length)return '<div class="card muted">В этот день пар нет.</div>';
   return ps.map(p=>{
     const m=(D.marks[ds]||{})[p.id]||{};
-    const rows=D.students.map(s=>{
-      const v=m[s.id];
-      return `<div class="row"><span>${esc(s.name)}</span>`+(ed
-        ?`<span class="seg">${['p','a','e'].map(k=>`<button class="${v===k?'on':''}" data-m="${ds}|${p.id}|${s.id}|${k}">${L[k]}</button>`).join('')}</span>`
-        :`<span class="tag ${v||''}">${v?L[v]:'—'}</span>`)+'</div>';
-    }).join('');
+    let rows='';
+    if(!D.students.length){
+      rows='<div class="muted pad">Список группы пуст.'+(ed?' Добавьте студентов во вкладке «Группа».':'')+'</div>';
+    } else {
+      rows=D.students.map(s=>{
+        const v=m[s.id];
+        return `<div class="row"><span>${esc(s.name)}</span>`+(ed
+          ?`<span class="seg">${['p','a','e'].map(k=>`<button class="${v===k?'on':''}" data-m="${ds}|${p.id}|${s.id}|${k}">${L[k]}</button>`).join('')}</span>`
+          :`<span class="tag ${v||''}">${v?L[v]:'—'}</span>`)+'</div>';
+      }).join('');
+    }
     return `<div class="card"><div class="ph"><b>${esc(p.name)}</b><span class="muted">${esc(p.time||'')}${WL[p.week]||''}</span></div>`
-      +(ed?`<div class="acts"><button class="btn" data-all="${ds}|${p.id}">Все тут</button><button class="btn pri" data-sum="${ds}|${p.id}">Сводка в чат группы</button></div>`:'')
+      +(ed&&D.students.length?`<div class="acts"><button class="btn" data-all="${ds}|${p.id}">Все тут</button><button class="btn pri" data-sum="${ds}|${p.id}">Сводка в чат группы</button></div>`:'')
       +rows+'</div>';
   }).join('');
 }
@@ -148,22 +154,25 @@ function deadlinesView(){
 function vToday(){
   const ds=iso(new Date()),wt=weekType(ds);
   const t=parse(ds).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
-  return `<div class="hd2">${t}${wt?' · '+(wt==='num'?'числитель':'знаменатель'):''}</div>`+dayView(ds)+deadlinesView();
+  return `<div class="hd2">${t}${wt?' · '+WNAME[wt]:''}</div>`+dayView(ds)+deadlinesView();
 }
 function vJournal(){
   const ym=jdate.slice(0,7),cnt={};
   for(const d in D.marks)if(d.startsWith(ym))for(const pid in D.marks[d])for(const sid in D.marks[d][pid]){
     const v=D.marks[d][pid][sid];if(v==='p')continue;(cnt[sid]=cnt[sid]||{a:0,e:0})[v]++;
   }
-  const rows=D.students.filter(s=>cnt[s.id]).map(s=>`<tr><td>${esc(s.name)}</td><td>${cnt[s.id].a}</td><td>${cnt[s.id].e}</td></tr>`).join('');
+  const rows=D.students.filter(s=>cnt[s.id]).map(s=>{
+    const a=cnt[s.id].a||0,e=cnt[s.id].e||0;
+    return `<tr><td>${esc(s.name)}</td><td>${a}</td><td>${e}</td><td>${a*2}</td></tr>`;
+  }).join('');
   const mn=parse(ym+'-01').toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
   return `<input type="date" id="jd" value="${jdate}" style="margin-bottom:12px">`+dayView(jdate)
-    +`<div class="card"><b>Пропуски за ${mn}</b>`+(rows?`<table><tr><th>Студент</th><th>Нет</th><th>Ув.</th></tr>${rows}</table>`:'<div class="muted pad">Пропусков нет</div>')+'<div class="muted"><small>Считаются пары.</small></div></div>';
+    +`<div class="card"><b>Пропуски за ${mn}</b>`+(rows?`<table><tr><th>Студент</th><th>Нет</th><th>Ув.</th><th>Часы</th></tr>${rows}</table>`:'<div class="muted pad">Пропусков нет</div>')+'<div class="muted"><small>1 пара = 2 часа. Считаются только «Нет».</small></div></div>';
 }
 function vPairs(){
   const ed=isEd(),wt=weekType(iso(new Date()));
-  let h='<div class="card"><b>Неделя</b><div class="muted pad">Сейчас: '+(wt?(wt==='num'?'числитель':'знаменатель'):'не задано')+'</div>'
-    +(ed?'<div class="acts"><button class="btn" data-setw="num">Сейчас числитель</button><button class="btn" data-setw="den">Сейчас знаменатель</button></div>':'')+'</div>';
+  let h='<div class="card"><b>Неделя</b><div class="muted pad">Сейчас: '+(wt?WNAME[wt]:'не задано')+'</div>'
+    +(ed?'<div class="acts"><button class="btn" data-setw="num">Сейчас над чертой</button><button class="btn" data-setw="den">Сейчас под чертой</button></div>':'')+'</div>';
   for(let d=1;d<=7;d++){
     const ps=D.schedule.filter(p=>p.day===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
     if(!ps.length)continue;
@@ -173,7 +182,7 @@ function vPairs(){
   if(ed)h+=`<div class="card"><b>Добавить пару</b><div class="form">
 <select id="pd">${DAYS.map((n,i)=>`<option value="${i+1}">${n}</option>`).join('')}</select>
 <input id="pt" type="time"><input id="pn" placeholder="Предмет">
-<select id="pw"><option value="all">Каждую неделю</option><option value="num">Только числитель</option><option value="den">Только знаменатель</option></select>
+<select id="pw"><option value="all">Каждую неделю</option><option value="num">Только над чертой</option><option value="den">Только под чертой</option></select>
 <button class="btn pri" id="addp">Добавить</button></div></div>`;
   return h;
 }
@@ -195,7 +204,6 @@ function render(){
   chip();
 }
 
-/* ---------- действия ---------- */
 function summary(ds,pid){
   const p=D.schedule.find(x=>x.id==pid),m=(D.marks[ds]||{})[pid]||{};
   const by=k=>D.students.filter(s=>m[s.id]===k).map(s=>s.name);
