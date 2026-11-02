@@ -58,6 +58,7 @@ const DAYS=['Понедельник','Вторник','Среда','Четвер
 const WL={all:'',num:' · над чертой',den:' · под чертой'};
 const WNAME={num:'над чертой',den:'под чертой'};
 const timeRange=p=>{const t=p.time||'';return p.end?t+' — '+p.end:t};
+const isPE=p=>{const n=(p.name||'').toLowerCase();return n.includes('физр')||n.includes('физическ')||n.includes('физкульт')};
 const host=location.hostname;
 const cfg={owner:host.endsWith('.github.io')?host.split('.')[0]:'gdenikita',repo:(host.endsWith('.github.io')&&location.pathname.split('/')[1])||'zhurnal-starosty'};
 const API=`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/data.json`;
@@ -138,6 +139,9 @@ function dayView(ds,canEdit){
     top=`<div class="card"><div class="acts" style="margin:0"><button class="btn pri" data-daysum="${ds}">Сводка за день в чат</button></div></div>`;
   }
   const cards=ps.map(p=>{
+    if(isPE(p)){
+      return `<div class="card"><div class="ph"><b>${esc(p.name)}</b><span class="muted">${esc(timeRange(p))}${WL[p.week]||''}</span></div><div class="muted pad">Отметки не ведутся</div></div>`;
+    }
     const m=(D.marks[ds]||{})[p.id]||{};
     let rows='';
     if(!D.students.length){
@@ -239,21 +243,25 @@ function daySummary(ds){
   const ps=pairsFor(ds);
   const d=parse(ds).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
   let t=`${D.group}, ${d}\n`;
-  // По парам
-  ps.forEach((p,i)=>{
+  let pairNum=0;
+  ps.forEach(p=>{
+    if(isPE(p))return;
+    pairNum++;
     const m=(D.marks[ds]||{})[p.id]||{};
     const by=k=>D.students.filter(s=>m[s.id]===k).map(s=>s.name);
     const un=D.students.filter(s=>!m[s.id]).map(s=>s.name);
-    t+=`\n${i+1}. ${p.name}${p.time?' ('+timeRange(p)+')':''}\n`;
+    t+=`\n${pairNum}. ${p.name}${p.time?' ('+timeRange(p)+')':''}\n`;
     t+=`Было: ${by('p').length} из ${D.students.length}\n`;
     if(by('a').length)t+='Нет: '+by('a').join(', ')+'\n';
     if(by('z').length)t+='По заявлению: '+by('z').join(', ')+'\n';
     if(by('b').length)t+='По больничному: '+by('b').join(', ')+'\n';
     if(un.length)t+='Не отмечены: '+un.join(', ')+'\n';
   });
-  // Кто и на каких парах отсутствовал
   const byPerson={};
-  ps.forEach((p,i)=>{
+  pairNum=0;
+  ps.forEach(p=>{
+    if(isPE(p))return;
+    pairNum++;
     const m=(D.marks[ds]||{})[p.id]||{};
     const short=p.name.split('(')[0].trim()||p.name;
     D.students.forEach(s=>{
@@ -261,7 +269,7 @@ function daySummary(ds){
       if(v==='a'||v==='z'||v==='b'){
         if(!byPerson[s.name])byPerson[s.name]=[];
         const reason=v==='a'?'нет':v==='z'?'заяв.':'больн.';
-        byPerson[s.name].push(`${i+1}. ${short} (${reason})`);
+        byPerson[s.name].push(`${pairNum}. ${short} (${reason})`);
       }
     });
   });
