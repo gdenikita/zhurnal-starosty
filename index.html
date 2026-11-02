@@ -133,7 +133,11 @@ function dayView(ds,canEdit){
   if(!canEdit){
     return ps.map(p=>`<div class="card"><div class="ph"><b>${esc(p.name)}</b><span class="muted">${esc(timeRange(p))}${WL[p.week]||''}</span></div></div>`).join('');
   }
-  return ps.map(p=>{
+  let top='';
+  if(ed&&D.students.length){
+    top=`<div class="card"><div class="acts" style="margin:0"><button class="btn pri" data-daysum="${ds}">Сводка за день в чат</button></div></div>`;
+  }
+  const cards=ps.map(p=>{
     const m=(D.marks[ds]||{})[p.id]||{};
     let rows='';
     if(!D.students.length){
@@ -147,9 +151,10 @@ function dayView(ds,canEdit){
       }).join('');
     }
     return `<div class="card"><div class="ph"><b>${esc(p.name)}</b><span class="muted">${esc(timeRange(p))}${WL[p.week]||''}</span></div>`
-      +(ed&&D.students.length?`<div class="acts"><button class="btn" data-all="${ds}|${p.id}">Все тут</button><button class="btn pri" data-sum="${ds}|${p.id}">Сводка в чат группы</button></div>`:'')
+      +(ed&&D.students.length?`<div class="acts"><button class="btn" data-all="${ds}|${p.id}">Все тут</button></div>`:'')
       +rows+'</div>';
   }).join('');
+  return top+cards;
 }
 function deadlinesView(){
   const ed=isEd(),t=iso(new Date());
@@ -230,16 +235,21 @@ function render(){
   $('#view').innerHTML={today:vToday,journal:vJournal,totals:vTotals,group:vGroup}[tab]();
   chip();
 }
-function summary(ds,pid){
-  const p=D.schedule.find(x=>x.id==pid),m=(D.marks[ds]||{})[pid]||{};
-  const by=k=>D.students.filter(s=>m[s.id]===k).map(s=>s.name);
-  const un=D.students.filter(s=>!m[s.id]).map(s=>s.name);
+function daySummary(ds){
+  const ps=pairsFor(ds);
   const d=parse(ds).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
-  let t=`${D.group}, ${d}\nПара: ${p.name}${p.time?' ('+timeRange(p)+')':''}\nБыло: ${by('p').length} из ${D.students.length}\n`;
-  if(by('a').length)t+='Нет: '+by('a').join(', ')+'\n';
-  if(by('z').length)t+='По заявлению: '+by('z').join(', ')+'\n';
-  if(by('b').length)t+='По больничному: '+by('b').join(', ')+'\n';
-  if(un.length)t+='Не отмечены: '+un.join(', ')+'\n';
+  let t=`${D.group}, ${d}\n`;
+  ps.forEach((p,i)=>{
+    const m=(D.marks[ds]||{})[p.id]||{};
+    const by=k=>D.students.filter(s=>m[s.id]===k).map(s=>s.name);
+    const un=D.students.filter(s=>!m[s.id]).map(s=>s.name);
+    t+=`\n${i+1}. ${p.name}${p.time?' ('+timeRange(p)+')':''}\n`;
+    t+=`Было: ${by('p').length} из ${D.students.length}\n`;
+    if(by('a').length)t+='Нет: '+by('a').join(', ')+'\n';
+    if(by('z').length)t+='По заявлению: '+by('z').join(', ')+'\n';
+    if(by('b').length)t+='По больничному: '+by('b').join(', ')+'\n';
+    if(un.length)t+='Не отмечены: '+un.join(', ')+'\n';
+  });
   return t.trim();
 }
 async function copy(t){
@@ -265,7 +275,7 @@ document.addEventListener('click',e=>{
   if(!isEd())return;
   if(d.m){const[ds,pid,sid,k]=d.m.split('|');mut(()=>{D.marks[ds]=D.marks[ds]||{};const m=D.marks[ds][pid]=D.marks[ds][pid]||{};if(m[sid]===k)delete m[sid];else m[sid]=k})}
   else if(d.all){const[ds,pid]=d.all.split('|');mut(()=>{D.marks[ds]=D.marks[ds]||{};const m=D.marks[ds][pid]=D.marks[ds][pid]||{};D.students.forEach(s=>m[s.id]='p')})}
-  else if(d.sum){const[ds,pid]=d.sum.split('|');copy(summary(ds,pid))}
+  else if(d.daysum){copy(daySummary(d.daysum))}
   else if(d.setw){mut(()=>{const mon=mondayOf(studyDate(new Date()));if(d.setw==='den')mon.setDate(mon.getDate()-7);D.anchor=iso(mon)})}
   else if(d.delp){if(confirm('Удалить пару?'))mut(()=>{D.schedule=D.schedule.filter(p=>p.id!=d.delp)})}
   else if(d.dels){if(confirm('Удалить студента из списка?'))mut(()=>{D.students=D.students.filter(s=>s.id!=d.dels)})}
