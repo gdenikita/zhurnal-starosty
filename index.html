@@ -19,9 +19,9 @@ main{max-width:560px;margin:0 auto;padding:12px 16px;width:100%;overflow-x:hidde
 .ph{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:6px}
 .muted{color:var(--mt)}.pad{padding:8px 0}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--g2)}
-.seg{display:flex;gap:4px;flex-shrink:0}
-.seg button,.btn,.x{font:inherit;border:0;border-radius:10px;background:var(--g2);color:var(--tx);min-height:40px;padding:0 12px}
-.seg button{min-width:52px;font-size:14px}
+.seg{display:flex;gap:3px;flex-shrink:0}
+.seg button,.btn,.x{font:inherit;border:0;border-radius:10px;background:var(--g2);color:var(--tx);min-height:40px;padding:0 10px}
+.seg button{min-width:48px;font-size:13px}
 .seg button.on,.btn.pri{background:var(--dk);color:#fff}
 .tag{font-size:14px;color:var(--mt)}.tag.p{color:var(--tx);font-weight:600}.tag.a{color:var(--dk);text-decoration:underline}
 .acts{display:flex;gap:8px;margin:6px 0 4px;flex-wrap:wrap}
@@ -32,7 +32,7 @@ textarea{min-height:90px}
 .tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--bg);border-top:1px solid var(--g2);padding-bottom:env(safe-area-inset-bottom);max-width:100vw}
 .tabs button{flex:1;font:inherit;font-size:13px;border:0;background:none;color:var(--mt);padding:14px 0}
 .tabs button.on{color:var(--tx);font-weight:700;box-shadow:inset 0 2px 0 var(--dk)}
-table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:6px 4px;border-top:1px solid var(--g2);text-align:left}th{border:0;color:var(--mt);font-weight:500}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 3px;border-top:1px solid var(--g2);text-align:left}th{border:0;color:var(--mt);font-weight:500}
 td:nth-child(n+2),th:nth-child(n+2){text-align:center}
 small{font-size:13px}
 #toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--g2);color:var(--tx);padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%}
@@ -53,7 +53,7 @@ const z=n=>String(n).padStart(2,'0');
 const iso=d=>d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
 const parse=s=>new Date(s+'T00:00:00');
 const fmt=s=>parse(s).toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
-const L={p:'Тут',a:'Нет',e:'Ув.'};
+const L={p:'Тут',a:'Нет',z:'Заяв.',b:'Больн.'};
 const DAYS=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
 const WL={all:'',num:' · над чертой',den:' · под чертой'};
 const WNAME={num:'над чертой',den:'под чертой'};
@@ -142,7 +142,7 @@ function dayView(ds,canEdit){
       rows=D.students.map(s=>{
         const v=m[s.id];
         return `<div class="row"><span>${esc(s.name)}</span>`+(ed
-          ?`<span class="seg">${['p','a','e'].map(k=>`<button class="${v===k?'on':''}" data-m="${ds}|${p.id}|${s.id}|${k}">${L[k]}</button>`).join('')}</span>`
+          ?`<span class="seg">${['p','a','z','b'].map(k=>`<button class="${v===k?'on':''}" data-m="${ds}|${p.id}|${s.id}|${k}">${L[k]}</button>`).join('')}</span>`
           :`<span class="tag ${v||''}">${v?L[v]:'—'}</span>`)+'</div>';
       }).join('');
     }
@@ -172,18 +172,18 @@ function vToday(){
 function vJournal(){
   const ym=jdate.slice(0,7),cnt={};
   for(const d in D.marks)if(d.startsWith(ym))for(const pid in D.marks[d])for(const sid in D.marks[d][pid]){
-    const v=D.marks[d][pid][sid];if(v==='p')continue;(cnt[sid]=cnt[sid]||{a:0,e:0})[v]++;
+    const v=D.marks[d][pid][sid];if(v==='p')continue;(cnt[sid]=cnt[sid]||{a:0,z:0,b:0})[v]++;
   }
   const rows=D.students.filter(s=>cnt[s.id]).map(s=>{
-    const a=cnt[s.id].a||0,e=cnt[s.id].e||0;
-    return `<tr><td>${esc(s.name)}</td><td>${a}</td><td>${e}</td><td>${a*2}</td></tr>`;
+    const a=cnt[s.id].a||0,zz=cnt[s.id].z||0,bb=cnt[s.id].b||0;
+    return `<tr><td>${esc(s.name)}</td><td>${a}</td><td>${zz}</td><td>${bb}</td><td>${a*2}</td></tr>`;
   }).join('');
   const mn=parse(ym+'-01').toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
   const wt=weekType(jdate);
   return `<input type="date" id="jd" value="${jdate}" style="margin-bottom:8px">`
     +`<div class="hd2 muted" style="margin-bottom:12px">${parse(jdate).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})}${wt?' · '+WNAME[wt]:''}</div>`
     +dayView(jdate,true)
-    +`<div class="card"><b>Пропуски за ${mn}</b>`+(rows?`<table><tr><th>Студент</th><th>Нет</th><th>Ув.</th><th>Часы</th></tr>${rows}</table>`:'<div class="muted pad">Пропусков нет</div>')+'<div class="muted"><small>1 пара = 2 часа. Считаются только «Нет».</small></div></div>';
+    +`<div class="card"><b>Пропуски за ${mn}</b>`+(rows?`<table><tr><th>Студент</th><th>Нет</th><th>Заяв.</th><th>Больн.</th><th>Часы</th></tr>${rows}</table>`:'<div class="muted pad">Пропусков нет</div>')+'<div class="muted"><small>1 пара = 2 часа. Считаются только «Нет».</small></div></div>';
 }
 function vTotals(){
   const now=new Date();
@@ -191,22 +191,22 @@ function vTotals(){
   const mn=parse(ym+'-01').toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
   const cnt={};
   for(const d in D.marks)if(d.startsWith(ym))for(const pid in D.marks[d])for(const sid in D.marks[d][pid]){
-    const v=D.marks[d][pid][sid];if(v==='p')continue;(cnt[sid]=cnt[sid]||{a:0,e:0})[v]++;
+    const v=D.marks[d][pid][sid];if(v==='p')continue;(cnt[sid]=cnt[sid]||{a:0,z:0,b:0})[v]++;
   }
   const rows=D.students.map(s=>{
-    const a=(cnt[s.id]||{}).a||0,e=(cnt[s.id]||{}).e||0;
-    return `<tr><td>${esc(s.name)}</td><td>${a}</td><td>${e}</td><td><b>${a*2}</b></td></tr>`;
+    const a=(cnt[s.id]||{}).a||0,zz=(cnt[s.id]||{}).z||0,bb=(cnt[s.id]||{}).b||0;
+    return `<tr><td>${esc(s.name)}</td><td>${a}</td><td>${zz}</td><td>${bb}</td><td><b>${a*2}</b></td></tr>`;
   }).join('');
-  let totalA=0,totalE=0;
-  D.students.forEach(s=>{totalA+=(cnt[s.id]||{}).a||0;totalE+=(cnt[s.id]||{}).e||0});
+  let totalA=0,totalZ=0,totalB=0;
+  D.students.forEach(s=>{totalA+=(cnt[s.id]||{}).a||0;totalZ+=(cnt[s.id]||{}).z||0;totalB+=(cnt[s.id]||{}).b||0});
   let h=`<div class="card"><b>Итоги пропусков · ${mn}</b>`
     +`<div class="muted pad"><small>Считается только текущий месяц. С 1-го числа нового месяца итоги обнуляются автоматически.</small></div>`;
   if(!D.students.length)h+='<div class="muted pad">Список группы пуст.</div>';
   else {
-    h+=`<table><tr><th>Студент</th><th>Нет</th><th>Ув.</th><th>Часы</th></tr>${rows}`
-      +`<tr><td><b>Всего</b></td><td><b>${totalA}</b></td><td><b>${totalE}</b></td><td><b>${totalA*2}</b></td></tr></table>`;
+    h+=`<table><tr><th>Студент</th><th>Нет</th><th>Заяв.</th><th>Больн.</th><th>Часы</th></tr>${rows}`
+      +`<tr><td><b>Всего</b></td><td><b>${totalA}</b></td><td><b>${totalZ}</b></td><td><b>${totalB}</b></td><td><b>${totalA*2}</b></td></tr></table>`;
   }
-  h+='<div class="muted"><small>1 пара «Нет» = 2 часа. Уважительные в часы не входят.</small></div></div>';
+  h+='<div class="muted"><small>1 пара «Нет» = 2 часа. Заявление и больничный в часы не входят.</small></div></div>';
   return h;
 }
 function vGroup(){
@@ -237,7 +237,8 @@ function summary(ds,pid){
   const d=parse(ds).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
   let t=`${D.group}, ${d}\nПара: ${p.name}${p.time?' ('+timeRange(p)+')':''}\nБыло: ${by('p').length} из ${D.students.length}\n`;
   if(by('a').length)t+='Нет: '+by('a').join(', ')+'\n';
-  if(by('e').length)t+='Уважительная причина: '+by('e').join(', ')+'\n';
+  if(by('z').length)t+='По заявлению: '+by('z').join(', ')+'\n';
+  if(by('b').length)t+='По больничному: '+by('b').join(', ')+'\n';
   if(un.length)t+='Не отмечены: '+un.join(', ')+'\n';
   return t.trim();
 }
