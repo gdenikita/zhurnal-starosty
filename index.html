@@ -239,6 +239,7 @@ function daySummary(ds){
   const ps=pairsFor(ds);
   const d=parse(ds).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
   let t=`${D.group}, ${d}\n`;
+  // По парам
   ps.forEach((p,i)=>{
     const m=(D.marks[ds]||{})[p.id]||{};
     const by=k=>D.students.filter(s=>m[s.id]===k).map(s=>s.name);
@@ -250,6 +251,29 @@ function daySummary(ds){
     if(by('b').length)t+='По больничному: '+by('b').join(', ')+'\n';
     if(un.length)t+='Не отмечены: '+un.join(', ')+'\n';
   });
+  // Кто и на каких парах отсутствовал
+  const byPerson={};
+  ps.forEach((p,i)=>{
+    const m=(D.marks[ds]||{})[p.id]||{};
+    const short=p.name.split('(')[0].trim()||p.name;
+    D.students.forEach(s=>{
+      const v=m[s.id];
+      if(v==='a'||v==='z'||v==='b'){
+        if(!byPerson[s.name])byPerson[s.name]=[];
+        const reason=v==='a'?'нет':v==='z'?'заяв.':'больн.';
+        byPerson[s.name].push(`${i+1}. ${short} (${reason})`);
+      }
+    });
+  });
+  const names=Object.keys(byPerson).sort();
+  if(names.length){
+    t+='\n———\nКто отсутствовал и на каких парах:\n';
+    names.forEach(n=>{
+      t+=`${n}: ${byPerson[n].join('; ')}\n`;
+    });
+  } else {
+    t+='\n———\nВсе были на всех парах.\n';
+  }
   return t.trim();
 }
 async function copy(t){
